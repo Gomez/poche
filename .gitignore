@@ -9,3 +9,4 @@ inc/poche/config.inc.php
 epub-filename.epub
 #PHPStorm
 .idea/*
+install/*
