@@ -129,6 +129,13 @@ class Database {
 
         return $entries;
     }
+    
+    public function retrieveNewest($user_id) {
+        $sql = "SELECT * FROM entries WHERE user_id=? ORDER BY id DESC";
+        $query = $this->executeQuery($sql, array($user_id));
+        $entries = $query->fetchAll();
+        return $entries;
+    }
 
     public function retrieveOneById($id, $user_id) {
         $entry  = NULL;
