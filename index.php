@@ -37,6 +37,9 @@ elseif (isset($_GET['import'])) {
 elseif (isset($_GET['export'])) {
     $poche->export();
 }
+elseif (isset($_GET['exportnew'])) {
+    $poche->exportNewest();
+}
 
 # vars to send to templates
 $tpl_vars = array(

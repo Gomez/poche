@@ -131,7 +131,7 @@ class Database {
     }
     
     public function retrieveNewest($user_id) {
-        $sql = "SELECT * FROM entries WHERE user_id=? ORDER BY id DESC";
+        $sql = "SELECT * FROM entries WHERE user_id=? ORDER BY id DESC LIMIT 0, 10";
         $query = $this->executeQuery($sql, array($user_id));
         $entries = $query->fetchAll();
         return $entries;
