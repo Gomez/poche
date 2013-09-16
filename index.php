@@ -8,6 +8,12 @@
  * @license    http://www.wtfpl.net/ see COPYING file
  */
 
+if (file_exists(__DIR__ . '/inc/poche/myconfig.inc.php')) {
+    require_once __DIR__ . '/inc/poche/myconfig.inc.php';
+}
+require_once './inc/poche/Tools.class.php';
+Tools::createMyConfig();
+
 include dirname(__FILE__).'/inc/poche/config.inc.php';
 
 # Parse GET & REFERER vars
@@ -40,9 +46,14 @@ elseif (isset($_GET['export'])) {
 elseif (isset($_GET['exportnew'])) {
     $poche->exportNewest();
 }
+elseif (isset($_GET['plainurl']) && !empty($_GET['plainurl'])) {
+    $plain_url = new Url(base64_encode($_GET['plainurl']));
+    $poche->action('add', $plain_url);
+}
 
 # vars to send to templates
 $tpl_vars = array(
+    'lang' => Tools::getDocLanguage($poche->user->getConfigValue('language')),
     'referer' => $referer,
     'view' => $view,
     'poche_url' => Tools::getPocheUrl(),

@@ -18,11 +18,10 @@ class Poche
 
     function __construct()
     {
-        if (file_exists('./install') && !DEBUG_POCHE) {
-            Tools::logm('folder /install exists');
-            die('To install your poche with sqlite, copy /install/poche.sqlite in /db and delete the folder /install. you have to delete the /install folder before using poche.');
+        $this->initTpl();
+        if (!$this->checkBeforeInstall()) {
+            exit;
         }
-
         $this->store = new Database();
         $this->init();
         $this->messages = new Messages();
@@ -32,6 +31,63 @@ class Poche
         {
             $this->install();
         }
+    }
+
+    /**
+     * all checks before installation.
+     * @return boolean 
+     */
+    private function checkBeforeInstall()
+    {
+        $msg = '';
+        $allIsGood = TRUE;
+
+        if (!is_writable(CACHE)) {
+            Tools::logm('you don\'t have write access on cache directory');
+            die('You don\'t have write access on cache directory.');
+        }
+        else if (file_exists('./install/update.php') && !DEBUG_POCHE) {
+            $msg = '<h1>setup</h1><p><strong>It\'s your first time here?</strong> Please copy /install/poche.sqlite in db folder. Then, delete install folder.<br /><strong>If you have already installed poche</strong>, an update is needed <a href="install/update.php">by clicking here</a>.</p>';
+            $allIsGood = FALSE;
+        }
+        else if (file_exists('./install') && !DEBUG_POCHE) {
+            $msg = '<h1>setup</h1><p><strong>If you want to update your poche</strong>, you just have to delete /install folder. <br /><strong>To install your poche with sqlite</strong>, copy /install/poche.sqlite in /db and delete the folder /install. you have to delete the /install folder before using poche.</p>';
+            $allIsGood = FALSE;
+        }
+        else if (STORAGE == 'sqlite' && !is_writable(STORAGE_SQLITE)) {
+            Tools::logm('you don\'t have write access on sqlite file');
+            $msg = '<h1>error</h1><p>You don\'t have write access on sqlite file.</p>';
+            $allIsGood = FALSE;
+        }
+        
+        if (!$allIsGood) {
+            echo $this->tpl->render('error.twig', array(
+                'msg' => $msg
+            ));
+        }
+
+        return $allIsGood;
+    }
+
+    private function initTpl()
+    {
+        # template engine
+        $loader = new Twig_Loader_Filesystem(TPL);
+        if (DEBUG_POCHE) {
+            $twig_params = array();
+        }
+        else {
+            $twig_params = array('cache' => CACHE);
+        }
+        $this->tpl = new Twig_Environment($loader, $twig_params);
+        $this->tpl->addExtension(new Twig_Extensions_Extension_I18n());
+        # filter to display domain name of an url
+        $filter = new Twig_SimpleFilter('getDomain', 'Tools::getDomain');
+        $this->tpl->addFilter($filter);
+
+        # filter for reading time
+        $filter = new Twig_SimpleFilter('getReadingTime', 'Tools::getReadingTime');
+        $this->tpl->addFilter($filter);
     }
 
     private function init() 
@@ -55,24 +111,6 @@ class Poche
         bindtextdomain($language, LOCALE); 
         textdomain($language); 
 
-        # template engine
-        $loader = new Twig_Loader_Filesystem(TPL);
-        if (DEBUG_POCHE) {
-            $twig_params = array();
-        }
-        else {
-            $twig_params = array('cache' => CACHE);
-        }
-        $this->tpl = new Twig_Environment($loader, $twig_params);
-        $this->tpl->addExtension(new Twig_Extensions_Extension_I18n());
-        # filter to display domain name of an url
-        $filter = new Twig_SimpleFilter('getDomain', 'Tools::getDomain');
-        $this->tpl->addFilter($filter);
-
-        # filter for reading time
-        $filter = new Twig_SimpleFilter('getReadingTime', 'Tools::getReadingTime');
-        $this->tpl->addFilter($filter);
-
         # Pagination
         $this->pagination = new Paginator($this->user->getConfigValue('pager'), 'p');
     }
@@ -87,10 +125,12 @@ class Poche
             if (($_POST['password'] == $_POST['password_repeat']) 
                 && $_POST['password'] != "" && $_POST['login'] != "") {
                 # let's rock, install poche baby !
-                $this->store->install($_POST['login'], Tools::encodeString($_POST['password'] . $_POST['login']));
-                Session::logout();
-                Tools::logm('poche is now installed');
-                Tools::redirect();
+                if ($this->store->install($_POST['login'], Tools::encodeString($_POST['password'] . $_POST['login'])))
+                {
+                    Session::logout();
+                    Tools::logm('poche is now installed');
+                    Tools::redirect();
+                }
             }
             else {
                 Tools::logm('error during installation');
@@ -116,36 +156,33 @@ class Poche
         switch ($action)
         {
             case 'add':
-                if($parametres_url = $url->fetchContent()) {
-                    if ($this->store->add($url->getUrl(), $parametres_url['title'], $parametres_url['content'], $this->user->getId())) {
-                        Tools::logm('add link ' . $url->getUrl());
-                        $sequence = '';
-                        if (STORAGE == 'postgres') {
-                            $sequence = 'entries_id_seq';
-                        }
-                        $last_id = $this->store->getLastId($sequence);
-                        if (DOWNLOAD_PICTURES) {
-                            $content = filtre_picture($parametres_url['content'], $url->getUrl(), $last_id);
-                        }
-                        if (!$import) {
-                            $this->messages->add('s', _('the link has been added successfully'));
-                        }
+                $content = $url->extract();
+
+                if ($this->store->add($url->getUrl(), $content['title'], $content['body'], $this->user->getId())) {
+                    Tools::logm('add link ' . $url->getUrl());
+                    $sequence = '';
+                    if (STORAGE == 'postgres') {
+                        $sequence = 'entries_id_seq';
                     }
-                    else {
-                        if (!$import) {
-                            $this->messages->add('e', _('error during insertion : the link wasn\'t added'));
-                            Tools::logm('error during insertion : the link wasn\'t added ' . $url->getUrl());
-                        }
+                    $last_id = $this->store->getLastId($sequence);
+                    if (DOWNLOAD_PICTURES) {
+                        $content = filtre_picture($content['body'], $url->getUrl(), $last_id);
+                        Tools::logm('updating content article');
+                        $this->store->updateContent($last_id, $content, $this->user->getId());
+                    }
+                    if (!$import) {
+                        $this->messages->add('s', _('the link has been added successfully'));
                     }
                 }
                 else {
                     if (!$import) {
-                        $this->messages->add('e', _('error during fetching content : the link wasn\'t added'));
-                        Tools::logm('error during content fetch ' . $url->getUrl());
+                        $this->messages->add('e', _('error during insertion : the link wasn\'t added'));
+                        Tools::logm('error during insertion : the link wasn\'t added ' . $url->getUrl());
                     }
                 }
+
                 if (!$import) {
-                    Tools::redirect();
+                    Tools::redirect('?view=home');
                 }
                 break;
             case 'delete':
@@ -214,25 +251,37 @@ class Poche
                         $tidy = tidy_parse_string($content, array('indent'=>true, 'show-body-only' => true), 'UTF8');
                         $tidy->cleanRepair();
                         $content = $tidy->value;
-                    }
-                    $tpl_vars = array(
+
+                        # flattr checking
+                        $flattr = new FlattrItem();
+                        $flattr->checkItem($entry['url']);
+
+                        $tpl_vars = array(
                         'entry' => $entry,
                         'content' => $content,
-                    );
+                        'flattr' => $flattr
+                        );
+                    }
                 }
                 else {
                     Tools::logm('error in view call : entry is null');
                 }
                 break;
-            default: # home view
+            default: # home, favorites and archive views 
                 $entries = $this->store->getEntriesByView($view, $this->user->getId());
-                $this->pagination->set_total(count($entries));
-                $page_links = $this->pagination->page_links('?view=' . $view . '&sort=' . $_SESSION['sort'] . '&');
-                $datas = $this->store->getEntriesByView($view, $this->user->getId(), $this->pagination->get_limit());
                 $tpl_vars = array(
-                    'entries' => $datas,
-                    'page_links' => $page_links,
+                    'entries' => '',
+                    'page_links' => '',
+                    'nb_results' => '',
                 );
+                if (count($entries) > 0) {
+                    $this->pagination->set_total(count($entries));
+                    $page_links = $this->pagination->page_links('?view=' . $view . '&sort=' . $_SESSION['sort'] . '&');
+                    $datas = $this->store->getEntriesByView($view, $this->user->getId(), $this->pagination->get_limit());
+                    $tpl_vars['entries'] = $datas;
+                    $tpl_vars['page_links'] = $page_links;
+                    $tpl_vars['nb_results'] = count($entries);
+                }
                 Tools::logm('display ' . $view . ' view');
                 break;
         }
@@ -325,13 +374,14 @@ class Poche
     /**
      * import from Instapaper. poche needs a ./instapaper-export.html file
      * @todo add the return value
+     * @param string $targetFile the file used for importing
      * @return boolean
      */
-    private function importFromInstapaper()
+    private function importFromInstapaper($targetFile)
     {
         # TODO gestion des articles favs
         $html = new simple_html_dom();
-        $html->load_file('./instapaper-export.html');
+        $html->load_file($targetFile);
         Tools::logm('starting import from instapaper');
 
         $read = 0;
@@ -364,13 +414,14 @@ class Poche
     /**
      * import from Pocket. poche needs a ./ril_export.html file
      * @todo add the return value
+     * @param string $targetFile the file used for importing
      * @return boolean 
      */
-    private function importFromPocket()
+    private function importFromPocket($targetFile)
     {
         # TODO gestion des articles favs
         $html = new simple_html_dom();
-        $html->load_file('./ril_export.html');
+        $html->load_file($targetFile);
         Tools::logm('starting import from pocket');
 
         $read = 0;
@@ -403,17 +454,20 @@ class Poche
     /**
      * import from Readability. poche needs a ./readability file
      * @todo add the return value
+     * @param string $targetFile the file used for importing
      * @return boolean 
      */
-    private function importFromReadability()
+    private function importFromReadability($targetFile)
     {
         # TODO gestion des articles lus / favs
-        $str_data = file_get_contents("./readability");
+        $str_data = file_get_contents($targetFile);
         $data = json_decode($str_data,true);
         Tools::logm('starting import from Readability');
-
+        $count = 0;
         foreach ($data as $key => $value) {
-            $url = '';
+            $url = NULL;
+            $favorite = FALSE;
+            $archive = FALSE;
             foreach ($value as $attr => $attr_value) {
                 if ($attr == 'article__url') {
                     $url = new Url(base64_encode($attr_value));
@@ -422,20 +476,30 @@ class Poche
                 if (STORAGE == 'postgres') {
                     $sequence = 'entries_id_seq';
                 }
-                // if ($attr_value == 'favorite' && $attr_value == 'true') {
-                //     $last_id = $this->store->getLastId($sequence);
-                //     $this->store->favoriteById($last_id);
-                //     $this->action('toogle_fav', $url, $last_id, TRUE);
-                // }
-                if ($attr_value == 'archive' && $attr_value == 'true') {
+                if ($attr_value == 'true') {
+                    if ($attr == 'favorite') {
+                        $favorite = TRUE;
+                    }
+                    if ($attr == 'archive') {
+                        $archive = TRUE;
+                    }
+                }
+            }
+            # we can add the url
+            if (!is_null($url) && $url->isCorrect()) {
+                $this->action('add', $url, 0, TRUE);
+                $count++;
+                if ($favorite) {
+                    $last_id = $this->store->getLastId($sequence);
+                    $this->action('toggle_fav', $url, $last_id, TRUE);
+                }
+                if ($archive) {
                     $last_id = $this->store->getLastId($sequence);
                     $this->action('toggle_archive', $url, $last_id, TRUE);
                 }
             }
-            if ($url->isCorrect())
-                $this->action('add', $url, 0, TRUE);
         }
-        $this->messages->add('s', _('import from Readability completed'));
+        $this->messages->add('s', _('import from Readability completed. ' . $count . ' new links.'));
         Tools::logm('import from Readability completed');
         Tools::redirect();
     }
@@ -448,15 +512,31 @@ class Poche
      */
     public function import($from)
     {
-        if ($from == 'pocket') {
-            return $this->importFromPocket();
+        $providers = array(
+            'pocket' => 'importFromPocket',
+            'readability' => 'importFromReadability',
+            'instapaper' => 'importFromInstapaper'
+        );
+        
+        if (! isset($providers[$from])) {
+            $this->messages->add('e', _('Unknown import provider.'));
+            Tools::redirect();
         }
-        else if ($from == 'readability') {
-            return $this->importFromReadability();
+        
+        $targetDefinition = 'IMPORT_' . strtoupper($from) . '_FILE';
+        $targetFile = constant($targetDefinition);
+        
+        if (! defined($targetDefinition)) {
+            $this->messages->add('e', _('Incomplete inc/poche/define.inc.php file, please define "' . $targetDefinition . '".'));
+            Tools::redirect();
         }
-        else if ($from == 'instapaper') {
-            return $this->importFromInstapaper();
+        
+        if (! file_exists($targetFile)) {
+            $this->messages->add('e', _('Could not find required "' . $targetFile . '" import file.'));
+            Tools::redirect();
         }
+        
+        $this->$providers[$from]($targetFile);
     }
 
     /**

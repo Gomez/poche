@@ -216,13 +216,7 @@ class Tools
 
     public static function getDomain($url)
     {
-      $pieces = parse_url($url);
-      $domain = isset($pieces['host']) ? $pieces['host'] : '';
-      if (preg_match('/(?P<domain>[a-z0-9][a-z0-9\-]{1,63}\.[a-z\.]{2,6})$/i', $domain, $regs)) {
-        return $regs['domain'];
-      }
-      
-      return FALSE;
+      return parse_url($url, PHP_URL_HOST);
     }
 
     public static function getReadingTime($text) {
@@ -232,5 +226,31 @@ class Tools
         $time = array('minutes' => $minutes, 'seconds' => $seconds);
 
         return $minutes;
+    }
+
+
+    public static function createMyConfig()
+    {
+        $myconfig_file = './inc/poche/myconfig.inc.php';
+
+        if (!is_writable('./inc/poche/')) {
+            self::logm('you don\'t have write access to create ./inc/poche/myconfig.inc.php');
+            die('You don\'t have write access to create ./inc/poche/myconfig.inc.php.');
+        }
+
+        if (!file_exists($myconfig_file))
+        {
+            $fp = fopen($myconfig_file, 'w');
+            fwrite($fp, '<?php'."\r\n");
+            fwrite($fp, "define ('POCHE_VERSION', '1.0-beta4');" . "\r\n");
+            fwrite($fp, "define ('SALT', '" . md5(time() . $_SERVER['SCRIPT_FILENAME'] . rand()) . "');" . "\r\n");
+            fwrite($fp, "define ('LANG', 'en_EN.utf8');" . "\r\n");
+            fclose($fp);
+        }
+    }
+
+    public static function getDocLanguage($userlanguage) {
+        $lang = explode('.', $userlanguage);
+        return str_replace('_', '-', $lang[0]);
     }
 }
