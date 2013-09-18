@@ -43,9 +43,14 @@ elseif (isset($_GET['import'])) {
 elseif (isset($_GET['export'])) {
     $poche->export();
 }
+elseif (isset($_GET['plainurl']) && !empty($_GET['plainurl'])) {
+    $plain_url = new Url(base64_encode($_GET['plainurl']));
+    $poche->action('add', $plain_url);
+}
 
 # vars to send to templates
 $tpl_vars = array(
+    'lang' => Tools::getDocLanguage($poche->user->getConfigValue('language')),
     'referer' => $referer,
     'view' => $view,
     'poche_url' => Tools::getPocheUrl(),

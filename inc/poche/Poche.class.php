@@ -93,6 +93,7 @@ class Poche
     private function init() 
     {
         Tools::initPhp();
+        Session::$sessionName = 'poche'; 
         Session::init();
 
         if (isset($_SESSION['poche_user']) && $_SESSION['poche_user'] != array()) {
@@ -166,7 +167,7 @@ class Poche
                     }
                     $last_id = $this->store->getLastId($sequence);
                     if (DOWNLOAD_PICTURES) {
-                        $content = filtre_picture($parametres_url['body'], $url->getUrl(), $last_id);
+                        $content = filtre_picture($content['body'], $url->getUrl(), $last_id);
                         Tools::logm('updating content article');
                         $this->store->updateContent($last_id, $content, $this->user->getId());
                     }
@@ -182,7 +183,7 @@ class Poche
                 }
 
                 if (!$import) {
-                    Tools::redirect();
+                    Tools::redirect('?view=home');
                 }
                 break;
             case 'delete':
@@ -247,25 +248,37 @@ class Poche
                         $tidy = tidy_parse_string($content, array('indent'=>true, 'show-body-only' => true), 'UTF8');
                         $tidy->cleanRepair();
                         $content = $tidy->value;
-                    }
-                    $tpl_vars = array(
+
+                        # flattr checking
+                        $flattr = new FlattrItem();
+                        $flattr->checkItem($entry['url']);
+
+                        $tpl_vars = array(
                         'entry' => $entry,
                         'content' => $content,
-                    );
+                        'flattr' => $flattr
+                        );
+                    }
                 }
                 else {
                     Tools::logm('error in view call : entry is null');
                 }
                 break;
-            default: # home view
+            default: # home, favorites and archive views 
                 $entries = $this->store->getEntriesByView($view, $this->user->getId());
-                $this->pagination->set_total(count($entries));
-                $page_links = $this->pagination->page_links('?view=' . $view . '&sort=' . $_SESSION['sort'] . '&');
-                $datas = $this->store->getEntriesByView($view, $this->user->getId(), $this->pagination->get_limit());
                 $tpl_vars = array(
-                    'entries' => $datas,
-                    'page_links' => $page_links,
+                    'entries' => '',
+                    'page_links' => '',
+                    'nb_results' => '',
                 );
+                if (count($entries) > 0) {
+                    $this->pagination->set_total(count($entries));
+                    $page_links = $this->pagination->page_links('?view=' . $view . '&sort=' . $_SESSION['sort'] . '&');
+                    $datas = $this->store->getEntriesByView($view, $this->user->getId(), $this->pagination->get_limit());
+                    $tpl_vars['entries'] = $datas;
+                    $tpl_vars['page_links'] = $page_links;
+                    $tpl_vars['nb_results'] = count($entries);
+                }
                 Tools::logm('display ' . $view . ' view');
                 break;
         }
