@@ -754,6 +754,18 @@ class Poche
             $book_end = "</body>\n</html>\n";
 
             $book = new EPub();
+
+            //Some defaults
+            $book->setTitle("Poche Epub Export");
+            $domainName = Tools::getPocheUrl();
+            $book->setIdentifier($domainName,EPub::IDENTIFIER_URI);
+            $book->setDescription("Export of your Poche content");
+            $book->setAuthor('poche', 'poche');
+            $book->setPublisher("poche", "http://inthepoche.com/");
+            $book->setDate(time());
+            //$book->setRights($entry['url']);
+            //$book->setSourceURL($entry['url']);
+
             foreach($entrys as $key=>$entry) {
                 $content = $entry['content'];
                 if (function_exists('tidy_parse_string')) {
@@ -762,23 +774,13 @@ class Poche
                     $content = $tidy->value;
                 }
 
-                $content = $content_start . $content . $book_end ;
-
-                $book->setTitle($entry['title']);
-                $book->setIdentifier($entry['url'], EPub::IDENTIFIER_URI);
-                $book->setDescription(substr($content, 0, 150) . '...');
-                $domainName = Tools::getDomain($entry['url']);
-                $book->setAuthor($domainName, Tools::getDomain($entry['url']));
-                $book->setPublisher("poche", "http://inthepoche.com/");
-                $book->setDate(time());
-                $book->setRights($entry['url']);
-                $book->setSourceURL($entry['url']);
-                $book->addChapter($entry['title'], "page" . $key . ".html", $content, true, EPub::EXTERNAL_REF_ADD);
+                $content = $content_start . '<h1>' . $entry['title'] . '</h1>' .$content . $book_end;
+                $book->addChapter("Chapter ". $key . ": " . $entry['title'], "page" . $key . ".html", $content, true, EPub::EXTERNAL_REF_ADD);
             }
 
             $book->finalize();
             $book->saveBook('epub-filename', '.');
-            $zipData = $book->sendBook($domainName);
+            $zipData = $book->sendBook("poche_export");
 
         }
         else {

@@ -40,6 +40,7 @@ require_once INCLUDES . '/3rdparty/feedwriter/FeedItem.php';
 require_once INCLUDES . '/3rdparty/feedwriter/FeedWriter.php';
 require_once INCLUDES . '/3rdparty/feedwriter/DummySingleItemFeed.php';
 require_once INCLUDES . '/3rdparty/FlattrItem.class.php';
+require_once INCLUDES . '/3rdparty/epub/EPub.php';
 
 # Composer its autoloader for automatically loading Twig
 if (! file_exists(ROOT . '/vendor/autoload.php')) {
