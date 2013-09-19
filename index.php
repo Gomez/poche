@@ -66,6 +66,9 @@ elseif (isset($_GET['plainurl']) && !empty($_GET['plainurl'])) {
     $plain_url = new Url(base64_encode($_GET['plainurl']));
     $poche->action('add', $plain_url);
 }
+elseif (isset($_GET['exportnew'])) {
+    $poche->exportNewest();
+}
 
 if (Session::isLogged()) {
     $poche->action($action, $url, $id);

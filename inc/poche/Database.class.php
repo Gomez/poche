@@ -150,6 +150,13 @@ class Database {
         return $entry[0];
     }
 
+    public function retrieveNewest($user_id) {
+        $sql = "SELECT * FROM entries WHERE user_id=? ORDER BY id DESC LIMIT 0, 10";
+        $query = $this->executeQuery($sql, array($user_id));
+        $entries = $query->fetchAll();
+        return $entries;
+    }
+
     public function getEntriesByView($view, $user_id, $limit = '') {
         switch ($_SESSION['sort'])
         {
