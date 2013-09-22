@@ -736,7 +736,7 @@ class Poche
      */
     public function exportNewest()
     {
-        $entrys = $this->store->retrieveNewest($this->user->getId());
+        $entrys = $this->store->retrieveNewestUnread($this->user->getId());
         if ($entrys != NULL) {
 
             $content_start =

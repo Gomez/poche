@@ -6,3 +6,6 @@ db/poche.sqlite
 output
 phpdoc*
 inc/poche/config.inc.php
+epub-filename.epub
+#PHPStorm
+.idea/*
