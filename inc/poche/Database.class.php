@@ -150,10 +150,12 @@ class Database {
         return $entry[0];
     }
 
-    public function retrieveNewestUnread($user_id) {
-        $sql = "SELECT * FROM entries WHERE `is_read` !=1 AND `user_id` =? ORDER BY id DESC LIMIT 0, 10";
-        $query = $this->executeQuery($sql, array($user_id));
+    public function retrieveNewestUnread($user_id, $number = 10 ) {
+        $sql = "SELECT * FROM entries WHERE `is_read` !=1 AND `user_id` =? ORDER BY id DESC LIMIT 0, ?";
+        $params = array($user_id, $number);
+        $query = $this->executeQuery($sql, $params);
         $entries = $query->fetchAll();
+
         return $entries;
     }
 
