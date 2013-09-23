@@ -152,7 +152,7 @@ class Database {
 
     public function retrieveNewestUnread($user_id, $number = 10 ) {
         $sql = "SELECT * FROM entries WHERE `is_read` !=1 AND `user_id` =? ORDER BY id DESC LIMIT 0, ?";
-        $params = array($user_id, $number);
+        $params = array($user_id, int($number));
         $query = $this->executeQuery($sql, $params);
         $entries = $query->fetchAll();
 
