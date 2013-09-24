@@ -151,8 +151,9 @@ class Database {
     }
 
     public function retrieveNewestUnread($user_id, $number = 10 ) {
-        $sql = "SELECT * FROM entries WHERE `is_read` !=1 AND `user_id` =? ORDER BY id DESC LIMIT 0, ?";
-        $params = array($user_id, int($number));
+        $sql = "SELECT * FROM entries WHERE `is_read` !=1 AND `user_id` =? ORDER BY id DESC LIMIT 0 , 10";
+        //TODO to make Limit generic see this http://stackoverflow.com/tags/pdo/info (PDO Prepared statements and LIMIT)
+        $params = array($user_id);
         $query = $this->executeQuery($sql, $params);
         $entries = $query->fetchAll();
 
